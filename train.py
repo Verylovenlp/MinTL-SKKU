@@ -1,4 +1,4 @@
-# 연습
+# 연습 2
 import os, random, argparse, time, logging, json, tqdm
 import numpy as np
 from copy import deepcopy
