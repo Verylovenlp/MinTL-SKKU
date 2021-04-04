@@ -1,3 +1,10 @@
 .DS_Store
 __pycache__/
 /code
+
+*.json
+log/
+experiments/
+plot/
+
+damd_multiwoz/data/

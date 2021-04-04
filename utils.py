@@ -12,6 +12,7 @@ from damd_multiwoz import ontology
 from damd_multiwoz.db_ops import MultiWozDB
 from damd_multiwoz.config import global_config as cfg
 
+# 직접 정의한 Vocab
 class Vocab(object):
     def __init__(self, model, tokenizer):
         self.special_tokens = ["pricerange", "<pad>", "<go_r>", "<unk>", "<go_b>", "<go_a>", "<eos_u>", "<eos_r>", "<eos_b>", "<eos_a>", "<go_d>",
@@ -31,6 +32,7 @@ class Vocab(object):
         self.vocab_size = self.add_special_tokens_(model, tokenizer)
 
 
+    # tokenizer에 attr_special_token들을 추가하고, model의 token embedding 크기 update.
     def add_special_tokens_(self, model, tokenizer):
         """ Add special tokens to the tokenizer and the model if they have not already been added. """
         #orig_num_tokens = model.config.vocab_size  #some of experiments use this...
@@ -45,18 +47,22 @@ class Vocab(object):
 
         return orig_num_tokens + num_added_tokens
 
+    # 단어 인코딩
     def encode(self, word):
         """ customize for damd script """
         return self.tokenizer.encode(word)[0]
 
+    # 문장 인고딩
     def sentence_encode(self, word_list):
         """ customize for damd script """
         return self.tokenizer.encode(" ".join(word_list))
 
+    # 단어 디코딩
     def decode(self, idx):
         """ customize for damd script """
         return self.tokenizer.decode(idx)
 
+    # 문장 디코딩
     def sentence_decode(self, index_list, eos=None):
         """ customize for damd script """
         l = self.tokenizer.decode(index_list)
@@ -78,6 +84,7 @@ def puntuation_handler(text):
     text = text.replace(":", " :")
     return text
 
+# MultiWOZReader class의 Parent가 됨.
 class _ReaderBase(object):
 
     def __init__(self):
@@ -85,6 +92,8 @@ class _ReaderBase(object):
         self.vocab = None
         self.db = None
 
+    # encoded_data를 크기 순으로 묶은 후, 정렬해서 dictionary로 반환. 
+    # 원하면 del_l에 지울 값들을 넣고 지울 수 있음.
     def _bucket_by_turn(self, encoded_data):
         turn_bucket = {}
         for dial in encoded_data:
@@ -101,6 +110,7 @@ class _ReaderBase(object):
         return OrderedDict(sorted(turn_bucket.items(), key=lambda i:i[0]))
 
 
+    # batch들로 data를 나눔. 마지막 부분같은 경우 배치 크기의 1/10이면 그냥 마지막 배치에 합침.
     def _construct_mini_batch(self, data):
         all_batches = []
         batch = []
@@ -123,6 +133,7 @@ class _ReaderBase(object):
             all_batches.append(batch)
         return all_batches
 
+    # batch를 [each_batch][each_turn][each_dialogue][words in turns] 형식으로 바꿈
     def transpose_batch(self, batch):
         dial_batch = []
         turn_num = len(batch[0])
@@ -137,6 +148,7 @@ class _ReaderBase(object):
             dial_batch.append(turn_l)
         return dial_batch
 
+    # ###
     def inverse_transpose_batch(self, turn_batch_list):
         """
         :param turn_batch_list: list of transpose dial batch
@@ -160,7 +172,7 @@ class _ReaderBase(object):
                 dialogs[dial_id].append(dial_turn)
         return dialogs
 
-
+    # 데이터로 학습용 batch 생성.
     def get_batches(self, set_name):
         global dia_count
         log_str = ''
@@ -185,7 +197,7 @@ class _ReaderBase(object):
         for i, batch in enumerate(all_batches):
             yield self.transpose_batch(batch)
 
-
+    # 결과 저장.
     def save_result(self, write_mode, results, field, write_title=False):
         with open(cfg.result_path, write_mode) as rf:
             if write_title:
@@ -195,6 +207,7 @@ class _ReaderBase(object):
             writer.writerows(results)
         return None
 
+    # 결과 형식
     def save_result_report(self, results):
 
         ctr_save_path = cfg.result_path[:-4] + '_report_ctr%s.csv'%cfg.seed
@@ -219,6 +232,7 @@ class _ReaderBase(object):
                 writer.writeheader()
             writer.writerows([res])
 
+# 데이터를 읽어들이고, 전처리해서 배치를 생성하는 클래스.
 class MultiWozReader(_ReaderBase):
     def __init__(self, vocab=None, args=None):
         super().__init__()
@@ -263,6 +277,7 @@ class MultiWozReader(_ReaderBase):
         random.shuffle(self.dev)
         random.shuffle(self.test)
 
+    
     def _get_encoded_data(self, fn, dial):
         encoded_dial = []
         dial_context = []
